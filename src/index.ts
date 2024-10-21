@@ -2,12 +2,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import odbc from "odbc";
 import { Knex } from "knex";
-const ClientPg = require("knex/lib/dialects/mysql/index.js");
+const Client_MYSQL = require("knex/lib/dialects/mysql/index.js");
 const {
   formatQuery,
 } = require("knex/lib/execution/internal/query-executioner.js");
 
-class ClientAtlasSqlOdbcImpl extends ClientPg {
+class ClientAtlasSqlOdbcImpl extends Client_MYSQL {
   private pool;
   private poolConnection;
 
