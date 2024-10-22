@@ -8,7 +8,11 @@ describe("Basic tests", () => {
   beforeAll(() => {
     db = Knex({
       client: ClientAtlasSqlOdbc,
-      connection: "DSN=MongoDB_Atlas_SQL",
+      trino: {
+        server: "http://localhost:8080",
+        schema: "cohart_dev",
+        catalog: "mongodb",
+      },
     });
   });
 
@@ -28,23 +32,28 @@ describe("Basic tests", () => {
     expect(results[0].id).toBe(3006);
   });
 
-  // it("should be able to join tables", async () => {
-  //   try {
-  //     const results = await db("artworks as a")
-  //       .leftJoin("artwork_users as au", (join) =>
-  //         join.on("au.artwork_id", "a.id").andOnVal("au.type", "creator")
-  //       )
-  //       .where({
-  //         "a.is_sold": true,
-  //         "au.is_hidden_on_profile": false,
-  //       })
-  //       .whereIn("a.artwork_creator_id", 1)
-  //       .whereNotIn("a.id", 2)
-  //       .groupBy("a.artwork_creator_id")
-  //       .select("a.artwork_creator_id as userId")
-  //       .count("* as count");
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // });
+  it("should be able to join tables", async () => {
+    const results = await db("artworks as a")
+      .leftJoin("artwork_users as au", (join) =>
+        join.on("au.artwork_id", "a.id").andOnVal("au.type", "creator")
+      )
+      .where({
+        "a.is_sold": true,
+        "au.is_hidden_on_profile": false,
+      })
+      .whereIn("a.artwork_creator_id", 1)
+      .whereNotIn("a.id", 2)
+      .groupBy("a.artwork_creator_id")
+      .select("a.artwork_creator_id as userId")
+      .count("* as count");
+    expect(results).toHaveLength(0);
+  });
+
+  it("Should able to count", async () => {
+    const result = await db("testimonials as t")
+      .count("* as count")
+      .where("t.receiver_id", 3006)
+      .first();
+    expect(result[0].count).toBe(0);
+  });
 });

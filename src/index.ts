@@ -1,42 +1,36 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import odbc from "odbc";
+import { Trino } from "trino-client";
 import { Knex } from "knex";
-const BaseClient = require("knex/lib/dialects/oracledb/index.js");
+const BaseClient = require("knex/lib/dialects/postgres/index.js");
+
+export type KnexTrinoConfig = Knex.Config & {
+  trino: { server: string; schema: string; catalog: string };
+};
 
 class ClientAtlasSqlOdbcImpl extends BaseClient {
-  private pool;
-  private poolConnection;
+  private trino;
 
-  constructor(config: Knex.Config) {
-    super(config);
+  constructor(config: KnexTrinoConfig) {
+    super({
+      ...config,
+      // Enforce a single connection:
+      pool: { min: 1, max: 1 },
+      connection: {},
+    } satisfies Knex.Config);
   }
 
   _driver() {
-    this.poolConnection = odbc
-      .pool(this.config.connection.filename)
-      .then((pool) => {
-        this.pool = pool;
-      })
-      .catch((err) => {
-        console.log(err);
-        throw err;
-      });
+    this.trino = Trino.create({
+      server: this.config.trino.server,
+      schema: this.config.trino.schema,
+      catalog: this.config.trino.catalog,
+    });
   }
-
-  // async _acquireOnlyConnection() {
-  //   await this.poolConnection;
-  //   const connection = await this.pool.connect();
-  //   connection.__knexUid = Date.now();
-  //   return connection;
-  // }
 
   // Acquire a connection from the pool.
   async acquireConnection() {
-    await this.poolConnection;
-    const connection = await this.pool.connect();
-    connection.__knexUid = Date.now();
-    return connection;
+    return this.trino;
   }
 
   async destroyRawConnection(connection: any) {
@@ -44,34 +38,19 @@ class ClientAtlasSqlOdbcImpl extends BaseClient {
     await connection.close();
   }
 
-  // async acquireConnection() {}
-
   // Releases a connection back to the connection pool,
   // returning a promise resolved when the connection is released.
   releaseConnection() {}
 
   // Destroy the current connection pool for the client.
   async destroy(callback) {
-    try {
-      if (this.pool) {
-        await this.pool.close();
-      }
-      this.pool = undefined;
-
-      if (typeof callback === "function") {
-        callback();
-      }
-    } catch (err) {
-      if (typeof callback === "function") {
-        return callback(err);
-      }
-      throw err;
-    }
+    callback();
   }
 
   async _query(connection: any, obj: any) {
     if (!obj.sql) throw new Error("The query is empty");
     let query = obj.sql;
+    console.log(query);
     obj.bindings.forEach((binding, index) => {
       let value;
       switch (typeof binding) {
@@ -84,10 +63,23 @@ class ClientAtlasSqlOdbcImpl extends BaseClient {
         default:
           value = binding;
       }
-      query = query.replace(`:${index + 1}`, value);
+      query = query.replace(`$${index + 1}`, value);
     });
-    const response = await connection.query(query, obj.options);
-    obj.response = response.slice(0, response.length);
+    const iter = await connection.query(query);
+    const result = await iter.next();
+
+    if (!result.value.data?.length) {
+      obj.response = [];
+      return obj;
+    }
+
+    const formatedResults = result.value.data.map((resultArr) => {
+      return resultArr.reduce((memo, resultArrVal, index) => {
+        memo[result.value.columns[index].name] = resultArrVal;
+        return memo;
+      }, {});
+    });
+    obj.response = formatedResults;
     return obj;
   }
 }
