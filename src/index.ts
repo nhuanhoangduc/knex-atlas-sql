@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Trino } from "trino-client";
+import { Trino, ConnectionOptions } from "trino-client";
 import { Knex } from "knex";
 const BaseClient = require("knex/lib/dialects/postgres/index.js");
 
 export type KnexTrinoConfig = Knex.Config & {
-  trino: { server: string; schema: string; catalog: string };
+  trino: ConnectionOptions;
 };
 
 class ClientAtlasSqlOdbcImpl extends BaseClient {
@@ -21,11 +21,7 @@ class ClientAtlasSqlOdbcImpl extends BaseClient {
   }
 
   _driver() {
-    this.trino = Trino.create({
-      server: this.config.trino.server,
-      schema: this.config.trino.schema,
-      catalog: this.config.trino.catalog,
-    });
+    this.trino = Trino.create(this.config.trino);
   }
 
   // Acquire a connection from the pool.
