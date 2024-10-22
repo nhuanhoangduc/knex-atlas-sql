@@ -2,12 +2,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import odbc from "odbc";
 import { Knex } from "knex";
-const Client_MYSQL = require("knex/lib/dialects/mysql/index.js");
-const {
-  formatQuery,
-} = require("knex/lib/execution/internal/query-executioner.js");
+const BaseClient = require("knex/lib/dialects/oracledb/index.js");
 
-class ClientAtlasSqlOdbcImpl extends Client_MYSQL {
+class ClientAtlasSqlOdbcImpl extends BaseClient {
   private pool;
   private poolConnection;
 
@@ -74,9 +71,23 @@ class ClientAtlasSqlOdbcImpl extends Client_MYSQL {
 
   async _query(connection: any, obj: any) {
     if (!obj.sql) throw new Error("The query is empty");
-    const query = formatQuery(obj.sql, obj.bindings, "UTC", this);
-    const response = await connection.query(query);
-    obj.response = [response.slice(0, response.length), response.columns];
+    let query = obj.sql;
+    obj.bindings.forEach((binding, index) => {
+      let value;
+      switch (typeof binding) {
+        case "string":
+          value = `"${binding}"`;
+          break;
+        case "boolean":
+          value = binding ? "TRUE" : "FALSE";
+          break;
+        default:
+          value = binding;
+      }
+      query = query.replace(`:${index + 1}`, value);
+    });
+    const response = await connection.query(query, obj.options);
+    obj.response = response.slice(0, response.length);
     return obj;
   }
 }
