@@ -9,7 +9,7 @@ describe("Basic tests", () => {
     db = Knex({
       client: ClientAtlasSqlOdbc,
       trino: {
-        server: "http://localhost:8080",
+        server: "http://localhost:8181",
         schema: "cohart_dev",
         catalog: "mongodb",
       },
@@ -28,6 +28,7 @@ describe("Basic tests", () => {
     const results = await db("users")
       .select("id", "full_name")
       .where({ id: 3006 });
+    console.log(results);
     expect(results).toBeTruthy();
     expect(results[0].id).toBe(3006);
   });
@@ -54,6 +55,14 @@ describe("Basic tests", () => {
       .count("* as count")
       .where("t.receiver_id", 3006)
       .first();
-    expect(result[0].count).toBe(0);
+    expect(result.count).toBe(0);
+  });
+
+  it("Should select first item", async () => {
+    const user = await db("users")
+      .select("id", "full_name")
+      .where({ full_name: "Khan" })
+      .first();
+    expect(user).toMatchObject({ full_name: "Khan" });
   });
 });

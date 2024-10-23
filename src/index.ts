@@ -51,7 +51,7 @@ class ClientAtlasSqlOdbcImpl extends BaseClient {
       let value;
       switch (typeof binding) {
         case "string":
-          value = `"${binding}"`;
+          value = `'${binding}'`;
           break;
         case "boolean":
           value = binding ? "TRUE" : "FALSE";
@@ -77,6 +77,15 @@ class ClientAtlasSqlOdbcImpl extends BaseClient {
     });
     obj.response = formatedResults;
     return obj;
+  }
+
+  processResponse(obj, runner) {
+    const resp = obj.response;
+    if (obj.output) return obj.output.call(runner, resp);
+    if (obj.method === "raw") return resp;
+    if (obj.method === "first") return resp[0];
+    if (obj.method === "pluck") return resp.map(obj.pluck);
+    return resp;
   }
 }
 
