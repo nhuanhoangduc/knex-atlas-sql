@@ -65,4 +65,12 @@ describe("Basic tests", () => {
       .first();
     expect(user).toMatchObject({ full_name: "Khan" });
   });
+
+  it("Should filter by boolean", async () => {
+    const user = await db("users")
+      .select("id", "full_name")
+      .where({ full_name: "Khan", is_deleted: false })
+      .first();
+    expect(user).toMatchObject({ full_name: "Khan" });
+  });
 });
