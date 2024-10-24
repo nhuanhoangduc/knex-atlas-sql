@@ -19,7 +19,7 @@ QueryCompiler_MySQL.prototype.offset = function () {
   if (noOffset) return "";
   let offset = `offset ${
     noOffset ? "0" : this._getValueOrParameterFromAttribute("offset")
-  } rows`;
+  }`;
   if (!noLimit) {
     offset += ` limit ${this._getValueOrParameterFromAttribute("limit")}`;
   }

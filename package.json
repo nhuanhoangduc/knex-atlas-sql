@@ -1,6 +1,6 @@
 {
   "name": "@hoangducnhuan/knex-atlas-sql",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Atlas SQL ODBC Dialect for Knex",
   "main": "dist/index.js",
   "scripts": {
