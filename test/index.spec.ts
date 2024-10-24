@@ -28,7 +28,6 @@ describe("Basic tests", () => {
     const results = await db("users")
       .select("id", "full_name")
       .where({ id: 3006 });
-    console.log(results);
     expect(results).toBeTruthy();
     expect(results[0].id).toBe(3006);
   });
@@ -51,11 +50,8 @@ describe("Basic tests", () => {
   });
 
   it("Should able to count", async () => {
-    const result = await db("testimonials as t")
-      .count("* as count")
-      .where("t.receiver_id", 3006)
-      .first();
-    expect(result.count).toBe(0);
+    const result = await db("testimonials as t").count("* as count").first();
+    expect(result.count).greaterThan(0);
   });
 
   it("Should select first item", async () => {
@@ -72,5 +68,27 @@ describe("Basic tests", () => {
       .where({ full_name: "Khan", is_deleted: false })
       .first();
     expect(user).toMatchObject({ full_name: "Khan" });
+  });
+
+  it("Should select first n items", async () => {
+    const users = await db("users").select("id", "full_name").limit(6);
+    expect(users).toHaveLength(6);
+  });
+
+  it("Should order, offset, limit items", async () => {
+    const users = await db("users")
+      .select("id", "full_name")
+      .orderBy([{ column: "id", order: "desc" }])
+      .offset(3)
+      .limit(6);
+    expect(users).toHaveLength(6);
+  });
+
+  it("Should offset items", async () => {
+    const users = await db("users")
+      .select("id", "full_name")
+      .orderBy([{ column: "id", order: "desc" }])
+      .offset(3);
+    expect(users.length).greaterThan(0);
   });
 });

@@ -2,10 +2,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Trino, ConnectionOptions } from "trino-client";
 import { Knex } from "knex";
-const BaseClient = require("knex/lib/dialects/postgres/index.js");
+const BaseClient = require("knex/lib/dialects/mysql/index.js");
+const {
+  formatQuery,
+} = require("knex/lib/execution/internal/query-executioner");
+const QueryCompiler_MySQL = require("knex/lib/dialects/mysql/query/mysql-querycompiler.js");
 
 export type KnexTrinoConfig = Knex.Config & {
   trino: ConnectionOptions;
+};
+
+// move offset to front of limit
+QueryCompiler_MySQL.prototype.offset = function () {
+  const noLimit = !this.single.limit && this.single.limit !== 0;
+  const noOffset = !this.single.offset;
+  if (noOffset) return "";
+  let offset = `offset ${
+    noOffset ? "0" : this._getValueOrParameterFromAttribute("offset")
+  } rows`;
+  if (!noLimit) {
+    offset += ` limit ${this._getValueOrParameterFromAttribute("limit")}`;
+  }
+  return offset;
+};
+QueryCompiler_MySQL.prototype.limit = function () {
+  const noLimit = !this.single.limit && this.single.limit !== 0;
+  const noOffset = !this.single.offset;
+  if (!noOffset || noLimit) return "";
+  this.single.limit = noLimit ? -1 : this.single.limit;
+  return `limit ${this._getValueOrParameterFromAttribute("limit")}`;
 };
 
 class ClientAtlasSqlOdbcImpl extends BaseClient {
@@ -45,22 +70,27 @@ class ClientAtlasSqlOdbcImpl extends BaseClient {
 
   async _query(connection: any, obj: any) {
     if (!obj.sql) throw new Error("The query is empty");
-    let query = obj.sql;
-    console.log(query);
-    obj.bindings.forEach((binding, index) => {
-      let value;
-      switch (typeof binding) {
-        case "string":
-          value = `'${binding}'`;
-          break;
-        case "boolean":
-          value = binding ? "TRUE" : "FALSE";
-          break;
-        default:
-          value = binding;
-      }
-      query = query.replace(`$${index + 1}`, value);
-    });
+    // let query = obj.sql;
+    // obj.bindings.forEach((binding, index) => {
+    //   let value;
+    //   switch (typeof binding) {
+    //     case "string":
+    //       value = `'${binding}'`;
+    //       break;
+    //     case "boolean":
+    //       value = binding ? "TRUE" : "FALSE";
+    //       break;
+    //     default:
+    //       value = binding;
+    //   }
+    //   query = query.replace(`?`, value);
+    // });
+
+    const query = formatQuery(obj.sql, obj.bindings, "UTC", this).replaceAll(
+      "`",
+      '"'
+    );
+
     const iter = await connection.query(query);
     const result = await iter.next();
 
@@ -79,13 +109,23 @@ class ClientAtlasSqlOdbcImpl extends BaseClient {
     return obj;
   }
 
-  processResponse(obj, runner) {
-    const resp = obj.response;
-    if (obj.output) return obj.output.call(runner, resp);
-    if (obj.method === "raw") return resp;
-    if (obj.method === "first") return resp[0];
-    if (obj.method === "pluck") return resp.map(obj.pluck);
-    return resp;
+  // Process the response as returned from the query.
+  processResponse(obj) {
+    if (obj == null) return;
+    const { response } = obj;
+    const { method } = obj;
+    switch (method) {
+      case "select":
+        return response;
+      case "first":
+        return response[0];
+      case "del":
+      case "update":
+      case "counter":
+        return response;
+      default:
+        return response;
+    }
   }
 }
 
