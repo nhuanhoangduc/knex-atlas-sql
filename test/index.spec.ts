@@ -10,7 +10,7 @@ describe("Basic tests", () => {
       client: ClientAtlasSqlOdbc,
       trino: {
         server: "http://localhost:8181",
-        schema: "cohart_dev",
+        schema: "dev",
         catalog: "mongodb",
       },
     });
