@@ -91,4 +91,13 @@ describe("Basic tests", () => {
       .offset(3);
     expect(users.length).greaterThan(0);
   });
+
+  it("Should use db function", async () => {
+    await db("artworks")
+      .select(
+        "user_id",
+        db.raw("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price) AS median")
+      )
+      .groupBy("user_id");
+  });
 });
